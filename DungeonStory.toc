@@ -1,0 +1,12 @@
+## Interface: 120001
+
+## Title: DungeonStory
+## Author: Alebob
+## SavedVariables: DungeonStoryPlayers,DungeonStoryRuns
+## Version: 0.1
+## Notes: Remember players you ran Mythic+ with
+## IconTexture: Interface\Icons\Inv_seasnail_orange
+
+embeds.xml
+
+main.lua
