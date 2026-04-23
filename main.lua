@@ -44,16 +44,12 @@
 ---@alias ModifyMenu fun(tag: string, callback: ModifyMenuCallbackFuncPolyfill): ModifyMenuReturnPolyfill
 
 local addonName = ... ---@type string @The name of the addon.
-local doMockData = false
 
 local isRaiderIoInstalled = false
 local classic = false
 local isLFGFrameHooked = false
 local dungeonState = { isActive = false, dungeonID = 0, startTime = 0, deathCount = 0, keystoneLevel = 0, party = {} } --[[@as DungeonState]]
 local currentPlayerRealmName = ""
--- cached inspect data to reduce number of inspect requests
--- stores itemlevel and specialization
-local inspectCache = {}
 local VALID_TYPES = {
     ARENAENEMY = true,
     BN_FRIEND = true,
@@ -106,7 +102,7 @@ do
         UNIT_TOKENS["arenapet" .. i] = true
     end
 
-    for i = 1, MAX_BOSS_FRAMES do
+    for i = 1, (MAX_BOSS_FRAMES or 10) do
         UNIT_TOKENS["boss" .. i] = true
     end
 
@@ -129,383 +125,18 @@ local function print(a)
 end
 
 
-local function ZOMGConfig(widget, event)
-    AceGUI:Release(widget.userdata.parent)
-
-    local f = AceGUI:Create("Frame")
-
-    f:SetCallback("OnClose", function(widget, event)
-        print("Closing")
-        AceGUI:Release(widget)
-    end)
-    f:SetTitle("ZOMG Config!")
-    f:SetStatusText("Status Bar")
-    f:SetLayout("Fill")
-
-    local maingroup = AceGUI:Create("DropdownGroup")
-    maingroup:SetLayout("Fill")
-    maingroup:SetGroupList({ Addons = "Addons !!", Zomg = "Zomg Addons" })
-    maingroup:SetGroup("Addons")
-    maingroup:SetTitle("")
-
-    f:AddChild(maingroup)
-
-    local tree = { "A", "B", "C", "D", B = { "B1", "B2", B1 = { "B11", "B12" } }, C = { "C1", "C2", C1 = { "C11", "C12" } } }
-    local text = {
-        A = "Option 1",
-        B = "Option 2",
-        C = "Option 3",
-        D = "Option 4",
-        J = "Option 10",
-        K = "Option 11",
-        L = "Option 12",
-        B1 = "Option 2-1",
-        B2 = "Option 2-2",
-        B11 = "Option 2-1-1",
-        B12 = "Option 2-1-2",
-        C1 = "Option 3-1",
-        C2 = "Option 3-2",
-        C11 = "Option 3-1-1",
-        C12 = "Option 3-1-2"
-    }
-    local t = AceGUI:Create("TreeGroup")
-    t:SetLayout("Fill")
-    t:SetTree(tree, text)
-    maingroup:AddChild(t)
-
-    local tab = AceGUI:Create("TabGroup")
-    tab:SetTabs({ "A", "B", "C", "D" }, { A = "Yay", B = "We", C = "Have", D = "Tabs" })
-    tab:SetLayout("Fill")
-    tab:SelectTab(1)
-    t:AddChild(tab)
-
-    local component = AceGUI:Create("DropdownGroup")
-    component:SetLayout("Fill")
-    component:SetGroupList({ Blah = "Blah", Splat = "Splat" })
-    component:SetGroup("Blah")
-    component:SetTitle("Choose Componet")
-
-    tab:AddChild(component)
-
-    local more = AceGUI:Create("DropdownGroup")
-    more:SetLayout("Fill")
-    more:SetGroupList({ ButWait = "But Wait!", More = "Theres More" })
-    more:SetGroup("More")
-    more:SetTitle("And More!")
-
-    component:AddChild(more)
-
-    local sf = AceGUI:Create("ScrollFrame")
-    sf:SetLayout("Flow")
-    more:AddChild(sf)
-    local stuff = AceGUI:Create("Heading")
-    stuff:SetText("Omg Stuff Here")
-    stuff.width = "fill"
-    sf:AddChild(stuff)
-
-    for i = 1, 10 do
-        local edit = AceGUI:Create("EditBox")
-        edit:SetText("")
-        edit:SetWidth(200)
-        edit:SetLabel("Stuff!")
-        edit:SetCallback("OnEnterPressed", function(widget, event, text) widget:SetLabel(text) end)
-        edit:SetCallback("OnTextChanged", function(widget, event, text) print(text) end)
-        sf:AddChild(edit)
-    end
-
-    f:Show()
-end
-
-local function GroupA(content)
-    content:ReleaseChildren()
-
-    local sf = AceGUI:Create("ScrollFrame")
-    sf:SetLayout("Flow")
-
-    local edit = AceGUI:Create("EditBox")
-    edit:SetText("Testing")
-    edit:SetWidth(200)
-    edit:SetLabel("Group A Option")
-    edit:SetCallback("OnEnterPressed", function(widget, event, text) widget:SetLabel(text) end)
-    edit:SetCallback("OnTextChanged", function(widget, event, text) print(text) end)
-    sf:AddChild(edit)
-
-    local slider = AceGUI:Create("Slider")
-    slider:SetLabel("Group A Slider")
-    slider:SetSliderValues(0, 1000, 5)
-    slider:SetDisabled(false)
-    sf:AddChild(slider)
-
-    local zomg = AceGUI:Create("Button")
-    zomg.userdata.parent = content.userdata.parent
-    zomg:SetText("Zomg!")
-    zomg:SetCallback("OnClick", ZOMGConfig)
-    sf:AddChild(zomg)
-
-    local heading1 = AceGUI:Create("Heading")
-    heading1:SetText("Heading 1")
-    heading1.width = "fill"
-    sf:AddChild(heading1)
-
-    for i = 1, 5 do
-        local radio = AceGUI:Create("CheckBox")
-        radio:SetLabel("Test Check " .. i)
-        radio:SetCallback("OnValueChanged",
-            function(widget, event, value) print(value and "Check " .. i .. " Checked" or "Check " .. i .. " Unchecked") end)
-        sf:AddChild(radio)
-    end
-
-    local heading2 = AceGUI:Create("Heading")
-    heading2:SetText("Heading 2")
-    heading2.width = "fill"
-    sf:AddChild(heading2)
-
-    for i = 1, 5 do
-        local radio = AceGUI:Create("CheckBox")
-        radio:SetLabel("Test Check " .. i + 5)
-        radio:SetCallback("OnValueChanged",
-            function(widget, event, value) print(value and "Check " .. i .. " Checked" or "Check " .. i .. " Unchecked") end)
-        sf:AddChild(radio)
-    end
-
-    local heading1 = AceGUI:Create("Heading")
-    heading1:SetText("Heading 1")
-    heading1.width = "fill"
-    sf:AddChild(heading1)
-
-    for i = 1, 5 do
-        local radio = AceGUI:Create("CheckBox")
-        radio:SetLabel("Test Check " .. i)
-        radio:SetCallback("OnValueChanged",
-            function(widget, event, value) print(value and "Check " .. i .. " Checked" or "Check " .. i .. " Unchecked") end)
-        sf:AddChild(radio)
-    end
-
-    local heading2 = AceGUI:Create("Heading")
-    heading2:SetText("Heading 2")
-    heading2.width = "fill"
-    sf:AddChild(heading2)
-
-    for i = 1, 5 do
-        local radio = AceGUI:Create("CheckBox")
-        radio:SetLabel("Test Check " .. i + 5)
-        radio:SetCallback("OnValueChanged",
-            function(widget, event, value) print(value and "Check " .. i .. " Checked" or "Check " .. i .. " Unchecked") end)
-        sf:AddChild(radio)
-    end
-
-    content:AddChild(sf)
-end
-
-local function GroupB(content)
-    content:ReleaseChildren()
-    local sf = AceGUI:Create("ScrollFrame")
-    sf:SetLayout("Flow")
-
-    local check = AceGUI:Create("CheckBox")
-    check:SetLabel("Group B Checkbox")
-    check:SetCallback("OnValueChanged", function(widget, event, value) print(value and "Checked" or "Unchecked") end)
-
-    local dropdown = AceGUI:Create("Dropdown")
-    dropdown:SetText("Test")
-    dropdown:SetLabel("Group B Dropdown")
-    dropdown.list = { "Test", "Test2" }
-    dropdown:SetCallback("OnValueChanged", function(widget, event, value) print(value) end)
-
-    sf:AddChild(check)
-    sf:AddChild(dropdown)
-    content:AddChild(sf)
-end
-
-local function OtherGroup(content)
-    content:ReleaseChildren()
-
-    local sf = AceGUI:Create("ScrollFrame")
-    sf:SetLayout("Flow")
-
-    local check = AceGUI:Create("CheckBox")
-    check:SetLabel("Test Check")
-    check:SetCallback("OnValueChanged",
-        function(widget, event, value) print(value and "CheckButton Checked" or "CheckButton Unchecked") end)
-
-    sf:AddChild(check)
-
-    local inline = AceGUI:Create("InlineGroup")
-    inline:SetLayout("Flow")
-    inline:SetTitle("Inline Group")
-    inline.width = "fill"
-
-    local heading1 = AceGUI:Create("Heading")
-    heading1:SetText("Heading 1")
-    heading1.width = "fill"
-    inline:AddChild(heading1)
-
-    for i = 1, 10 do
-        local radio = AceGUI:Create("CheckBox")
-        radio:SetLabel("Test Radio " .. i)
-        radio:SetCallback("OnValueChanged",
-            function(widget, event, value) print(value and "Radio " .. i .. " Checked" or "Radio " .. i .. " Unchecked") end)
-        radio:SetType("radio")
-        inline:AddChild(radio)
-    end
-
-    local heading2 = AceGUI:Create("Heading")
-    heading2:SetText("Heading 2")
-    heading2.width = "fill"
-    inline:AddChild(heading2)
-
-    for i = 1, 10 do
-        local radio = AceGUI:Create("CheckBox")
-        radio:SetLabel("Test Radio " .. i)
-        radio:SetCallback("OnValueChanged",
-            function(widget, event, value) print(value and "Radio " .. i .. " Checked" or "Radio " .. i .. " Unchecked") end)
-        radio:SetType("radio")
-        inline:AddChild(radio)
-    end
-
-
-    sf:AddChild(inline)
-    content:AddChild(sf)
-end
-
-local function SelectGroup(widget, event, value)
-    if value == "A" then
-        GroupA(widget)
-    elseif value == "B" then
-        GroupB(widget)
-    else
-        OtherGroup(widget)
-    end
-end
-
-
-local function TreeWindow(content)
-    content:ReleaseChildren()
-
-    local tree = {
-        {
-            value = "A",
-            text = "Alpha"
-        },
-        {
-            value = "B",
-            text = "Bravo",
-            children = {
-                {
-                    value = "C",
-                    text = "Charlie",
-                },
-                {
-                    value = "D",
-                    text = "Delta",
-                    children = {
-                        {
-                            value = "E",
-                            text = "Echo",
-                        }
-                    }
-                },
-            }
-        },
-        {
-            value = "F",
-            text = "Foxtrot",
-        },
-    }
-    local t = AceGUI:Create("TreeGroup")
-    t:SetLayout("Fill")
-    t:SetTree(tree)
-    t:SetCallback("OnGroupSelected", SelectGroup)
-    content:AddChild(t)
-    SelectGroup(t, "OnGroupSelected", "A")
-end
-
-local function TabWindow(content)
-    content:ReleaseChildren()
-    local tab = AceGUI:Create("TabGroup")
-    tab.userdata.parent = content.userdata.parent
-    tab:SetTabs({ "A", "B", "C", "D" }, { A = "Alpha", B = "Bravo", C = "Charlie", D = "Deltaaaaaaaaaaaaaa" })
-    tab:SetTitle("Tab Group")
-    tab:SetLayout("Fill")
-    tab:SetCallback("OnGroupSelected", SelectGroup)
-    tab:SelectTab(1)
-    content:AddChild(tab)
-end
-
-
-function TestFrame()
-    local f = AceGUI:Create("Frame")
-    f:SetCallback("OnClose", function(widget, event)
-        print("Closing")
-        AceGUI:Release(widget)
-    end)
-    f:SetTitle("AceGUI Prototype")
-    f:SetStatusText("Root Frame Status Bar")
-    f:SetLayout("Fill")
-
-    local maingroup = AceGUI:Create("DropdownGroup")
-    maingroup.userdata.parent = f
-    maingroup:SetLayout("Fill")
-    maingroup:SetGroupList({ Tab = "Tab Frame", Tree = "Tree Frame" })
-    maingroup:SetGroup("Tab")
-    maingroup:SetTitle("Select Group Type")
-    maingroup:SetCallback("OnGroupSelected", function(widget, event, value)
-        widget:ReleaseChildren()
-        if value == "Tab" then
-            TabWindow(widget)
-        else
-            TreeWindow(widget)
-        end
-    end)
-
-    TabWindow(maingroup)
-    f:AddChild(maingroup)
-
-
-    f:Show()
-end
-
----comment
 ---@param fullName string player full name (Name-Realm)
 ---@return DungeonStorySinglePlayerData | nil
-function DS_GetStoredData(fullName)
-    if doMockData then
-        return {
-            {
-                time = 1700000000,
-                ilvl = 200,
-                mPlusRating = 1500,
-                comment = "Great player!",
-                score = 3
-            },
-            {
-                time = 1700100000,
-                ilvl = 202,
-                mPlusRating = 1520,
-                comment = "Good job",
-                score = 1
-            },
-            {
-                time = 1700200000,
-                ilvl = 199,
-                mPlusRating = 1480,
-                comment = "Could be better",
-                score = -1
-            }
-        }
-    end
+local function DS_GetStoredData(fullName)
     return DungeonStoryPlayers[fullName]
 end
 
----comment
 ---@param timestamp number
 ---@return string|osdate
-function FormatDateTime(timestamp)
-    timestamp = timestamp
+local function FormatDateTime(timestamp)
     return date("%Y-%m-%d %H:%M:%S", timestamp)
 end
 
----comment
 ---@param playerData PlayerDataFeedback
 ---@param runIndex number | nil Index of the run in DungeonStoryRuns
 local function SavePlayerFeedback(playerData, runIndex)
@@ -528,7 +159,6 @@ local function SavePlayerFeedback(playerData, runIndex)
     toSave[#toSave + 1] = val
 end
 
----comment
 ---@param i number
 ---@param groupState {selectedIdx: number, checkboxes: AceGUICheckBox[]}
 ---@param checkboxValue number
@@ -552,7 +182,6 @@ local function checkboxCallback(i, groupState, checkboxValue, data)
     end
 end
 
----comment
 ---@param data PlayerDataFeedback
 ---@return function
 local function feedbackCommentCallback(data)
@@ -561,7 +190,6 @@ local function feedbackCommentCallback(data)
     end
 end
 
----comment
 ---@param parent AceGUIContainer
 ---@param text string
 ---@param color {r: number, g: number, b: number} | nil
@@ -577,7 +205,6 @@ local function createLabel(parent, text, color, fontSize)
     parent:AddChild(label)
 end
 
----comment
 ---@param feedbackType -3 | -1 | 1 | 3
 ---@return {r: number, g: number, b: number} | nil
 local function GetFeedbackColors(feedbackType)
@@ -592,7 +219,6 @@ local function GetFeedbackColors(feedbackType)
     end
 end
 
----comment
 ---@param feedbackType -3 | -1 | 1 | 3
 ---@return string
 local function GetFeedbackHexColors(feedbackType)
@@ -607,7 +233,6 @@ local function GetFeedbackHexColors(feedbackType)
     end
 end
 
----comment
 ---@param parent AceGUIContainer
 ---@param data PlayerDataFeedback
 local function createCheckboxGroup(parent, data)
@@ -650,7 +275,6 @@ local function createCheckboxGroup(parent, data)
     createLabel(parent, "++", color, labelFontSize)
 end
 
----comment
 ---@param parent AceGUIContainer
 ---@param playerName string
 ---@param className string
@@ -676,7 +300,6 @@ local function createInlineGroup(parent, playerName, className)
     return group
 end
 
----comment
 ---@param parent AceGUIContainer
 ---@param data PlayerDataFeedback
 local function groupPlayerFeedback(parent, data)
@@ -692,7 +315,6 @@ local function groupPlayerFeedback(parent, data)
     group:AddChild(multiLine)
 end
 
----comment
 ---@param data PlayerDataFeedback[]
 ---@param runIndex number | nil Index of the run in DungeonStoryRuns
 ---@return function
@@ -705,7 +327,6 @@ local function FeedbackFrameCloseHandler(data, runIndex)
     end
 end
 
----comment
 ---@param data PlayerData[]
 ---@param runIndex number | nil Index of the run in DungeonStoryRuns
 local function ShowFeedbackFrame(data, runIndex)
@@ -718,7 +339,6 @@ local function ShowFeedbackFrame(data, runIndex)
     local sf = AceGUI:Create("ScrollFrame") --[[@as AceGUIScrollFrame]]
     sf:SetLayout("Flow")
 
-    -- DevTools_Dump(data)
     for i, playerData in pairs(data) do
         -- casting PlayerData to PlayerDataFeedback to allow adding score and comment fields
         groupPlayerFeedback(sf, playerData --[[@as PlayerDataFeedback]])
@@ -728,7 +348,6 @@ local function ShowFeedbackFrame(data, runIndex)
     f:Show()
 end
 
----comment
 ---@param parent AceGUIContainer
 ---@param data DungeonStoryEntry
 ---@return AceGUIInlineGroup
@@ -748,7 +367,6 @@ local function CreateHistoryInlineGroup(parent, data)
     return group
 end
 
----comment
 ---@param fullName string
 ---@param playerData DungeonStorySinglePlayerData
 local function ShowHistoryFrame(fullName, playerData)
@@ -761,7 +379,6 @@ local function ShowHistoryFrame(fullName, playerData)
     local sf = AceGUI:Create("ScrollFrame") --[[@as AceGUIScrollFrame]]
     sf:SetLayout("Flow")
 
-    -- DevTools_Dump(data)
     for i = #playerData, 1, -1 do
         local data = playerData[i]
         local entryGroup = CreateHistoryInlineGroup(sf, data)
@@ -791,11 +408,10 @@ local function ShowHistoryFrame(fullName, playerData)
     f:Show()
 end
 
----comment
 ---@param tooltip any
 ---@param data DungeonStorySinglePlayerData
 ---@param unit UnitToken
-local function AddTooltipInfo(tooltip, data, unit)
+local function AddTooltipInfo(tooltip, data)
     local line = string.format("You met %d times.", #data)
     tooltip:AddLine(line, 1, 1, 1)
 
@@ -836,25 +452,38 @@ local function AddTooltipInfo(tooltip, data, unit)
     end
 end
 
--- TestFrame()
-
 if not classic then
-    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
-        local _, unit = tooltip:GetUnit()
-        if unit then
-            local isPlayer = UnitIsPlayer(unit)
-            if isPlayer then
-                local name, realmName = UnitFullName(unit)
-                local fullName = name.."-"..(realmName or currentPlayerRealmName)
-                if DungeonStoryPlayers[fullName] then
-                    AddTooltipInfo(tooltip, DungeonStoryPlayers[fullName], unit)
-                end
-            end
+    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip, tooltipData)
+        -- In instances (and elsewhere in retail 11.x+/12.x), unit tooltips can be
+        -- dispatched for "restricted" / secret unit tokens that belong to Blizzard's
+        -- protected targeting system. Calling tooltip:GetUnit() in that case causes
+        -- TooltipUtil.GetDisplayedUnit -> UnitName(unit) to throw:
+        --   "Secret values are only allowed during untainted execution"
+        -- Avoid the unit token entirely and work off the tooltipData.guid that the
+        -- secure tooltip pipeline hands us. When the tooltip is restricted, guid is
+        -- absent (or not a usable string) and we simply bail.
+        if not tooltipData then return end
+        local guid = tooltipData.guid
+        -- IMPORTANT: check issecretvalue BEFORE any equality / string op on
+        -- guid. A secret string is still type=="string", but comparing it
+        -- ("guid == ...", string.sub, etc.) throws:
+        --   "attempt to compare local 'guid' (a secret string value, while execution tainted)"
+        if guid == nil then return end
+        if issecretvalue and issecretvalue(guid) then return end
+        if type(guid) ~= "string" or guid == "" then return end
+        if string.sub(guid, 1, 6) ~= "Player" then return end
+
+        local _, _, _, _, _, name, realmName = GetPlayerInfoByGUID(guid)
+        if not name or name == "" then return end
+
+        realmName = (realmName and realmName ~= "") and realmName or currentPlayerRealmName
+        local fullName = name .. "-" .. realmName
+        if DungeonStoryPlayers[fullName] then
+            AddTooltipInfo(tooltip, DungeonStoryPlayers[fullName])
         end
     end)
 end
 
----comment
 ---@param unitInfo PlayerData
 ---@return string
 local function generateLink(unitInfo)
@@ -867,24 +496,27 @@ local function generateLink(unitInfo)
         unitInfo.name)
 end
 
----comment
 ---@param unit UnitToken
 ---@return PlayerData | nil
 local function collectUnitInfo(unit)
     if not UnitIsPlayer(unit) then
-        print(string.format("Unit '%s' is not a player", unit))
         return nil
     end
 
-    local name, server = UnitFullName(unit)
-    local fileName = UnitClassBase(unit)
+    -- Use GUID-based lookup for clean name/realm (guards against tainted values)
+    local guid = UnitGUID(unit)
+    if not guid then return nil end
+
+    local _, fileName, _, _, _, name, server = GetPlayerInfoByGUID(guid)
+    if not name or name == "" then return nil end
+
+    server = (server and server ~= "") and server or currentPlayerRealmName
     local ratingSummary = C_PlayerInfo.GetPlayerMythicPlusRatingSummary(unit)
     local mPlusRating = 0
     if ratingSummary and ratingSummary.currentSeasonScore then
         mPlusRating = ratingSummary.currentSeasonScore
     end
 
-    server = server or currentPlayerRealmName
     -- very unreliable, can be 0 when not inspected
     local equippedItemLevel = C_PaperDollInfo.GetInspectItemLevel(unit)
     return {
@@ -895,7 +527,6 @@ local function collectUnitInfo(unit)
     }
 end
 
----comment
 ---@param unit UnitToken
 local function handleUnit(unit)
     if not UnitIsPlayer(unit) then
@@ -913,87 +544,40 @@ local function handleUnit(unit)
     print(link)
 end
 
----comment
 ---@return PlayerData[]
 local function retrieveRaidInfo()
     local data = {}
-    -- the only way to get raid members is to iterate over raid1, raid2, ...
-    -- GetNumGroupMembers() only return total number
-    -- we don't know raid composition and which groups are actually filled
     for i = 1, 40 do
         local unit = "raid" .. i
-        if UnitExists(unit) and not UnitIsPlayer(unit) == true then
-            local unitInfo = collectUnitInfo(unit, i)
-            table.insert(data, unitInfo)
-        else
-            print("Unit is player or does not exist: " .. unit)
-            DevTools_Dump(unit)
-
-            -- still try to collect info?
-            local unitInfo = collectUnitInfo(unit, i)
-            table.insert(data, unitInfo)
-        end        
+        if UnitExists(unit) and UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
+            local unitInfo = collectUnitInfo(unit)
+            if unitInfo then
+                table.insert(data, unitInfo)
+            end
+        end
     end
     return data
 end
 
----comment
 ---@return PlayerData[]
 local function retrieveGroupInfo()
     local data = {}
     local numMembers = GetNumSubgroupMembers()
     for i = 1, numMembers do
         local unit = "party" .. i
-        if UnitIsPlayer(unit) ~= true then
+        if UnitExists(unit) and UnitIsPlayer(unit) then
             local unitInfo = collectUnitInfo(unit)
-            if unitInfo ~= nil then
+            if unitInfo then
                 table.insert(data, unitInfo)
             end
-        else
-            print("Unit is player or does not exist: " .. unit)
-            DevTools_Dump(unit)
-
-            -- still try to collect info?
-            local unitInfo = collectUnitInfo(unit, i)
-            table.insert(data, unitInfo)
         end
     end
     return data
 end
 
----comment
 ---@return PlayerData[]
 local function collectDataForScoring()
     local data = {}
-    if doMockData then
-        data = {
-            {
-                name = "PlayerOne-Realm",
-                class = "WARRIOR",
-                equippedItemLevel = 200,
-                mPlusRating = 1500
-            },
-            {
-                name = "PlayerTwo-Realm",
-                class = "MAGE",
-                equippedItemLevel = 195,
-                mPlusRating = 1400
-            },
-            {
-                name = "PlayerThree-Realm",
-                class = "DRUID",
-                equippedItemLevel = 198,
-                mPlusRating = 1450
-            },
-            {
-                name = "PlayerFour-Realm",
-                class = "DEATHKNIGHT",
-                equippedItemLevel = 777,
-                mPlusRating = 6969
-            }
-        }
-        return data
-    end
 
     if (IsInRaid()) then
         data = retrieveRaidInfo()
@@ -1003,11 +587,9 @@ local function collectDataForScoring()
     return data
 end
 
----comment
 ---@param fullName string
 ---@return number | nil, number | nil
 local function GatherPlayerStats(fullName)
-    -- print("Collecting stats for " .. fullName)
     local data = DS_GetStoredData(fullName)
     if data then
         local totalNegative, totalPositive = 0, 0
@@ -1024,57 +606,37 @@ local function GatherPlayerStats(fullName)
     return nil, nil
 end
 
----comment
----@param member Frame
----@param id number applicantID
----@param index number memberIndex
-local function UpdateApplicantMember(member, id, index)
-    local name = C_LFGList.GetApplicantMemberInfo(id, index)
-    if name == nil then return end
-    local totalPositive, totalNegative = GatherPlayerStats(name)
-    if totalPositive == nil and totalNegative == nil then
-        return
+---@param name string Player name (may or may not include "-Realm")
+---@param realmsToProbe string[] Realms to try when name has no realm suffix
+---@return number positive, number negative
+local function GetAggregatedFeedback(name, realmsToProbe)
+    if not name or name == "" then return 0, 0 end
+    if string.find(name, "-", nil, true) then
+        local p, n = GatherPlayerStats(name)
+        return p or 0, n or 0
     end
-
-    local negativeScore = GetFeedbackHexColors(-3)
-    local positiveScore = GetFeedbackHexColors(3)
-    member.Rating:SetText(string.format("%s %s%d|r%s%d|r", member.Rating:GetText(), negativeScore, totalNegative, positiveScore, totalPositive))
-    PlaySound(SOUNDKIT.MAP_PING)
-end
-
----comment
----@param searchResultRow any
----@param numMembers number
----@param realmsToProbe string[]
-local function UpdateSearchResultEntry(searchResultRow, numMembers, realmsToProbe)
-    local totalPositive, totalNegative = 0, 0
-    for i = 1, numMembers do
-        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(searchResultRow.resultID, i)
-        if memberInfo and memberInfo.name then
-            for j = 1, #realmsToProbe do
-                local realm = realmsToProbe[j]
-                local nameToProbe = memberInfo.name
-                if realm and realm ~= "" and not string.find(nameToProbe, "-") then
-                    nameToProbe = nameToProbe .. "-" .. realm
-                end
-
-                local memberPositive, memberNegative = GatherPlayerStats(nameToProbe)
-                totalPositive = totalPositive + (memberPositive or 0)
-                totalNegative = totalNegative + (memberNegative or 0)
-            end
+    local pos, neg = 0, 0
+    for _, realm in ipairs(realmsToProbe) do
+        if realm and realm ~= "" then
+            local p, n = GatherPlayerStats(name .. "-" .. realm)
+            pos = pos + (p or 0)
+            neg = neg + (n or 0)
         end
     end
+    return pos, neg
+end
 
-    if (totalPositive == 0 and totalNegative == 0) then
-        return
-    end
-
-    local negativeScore = GetFeedbackHexColors(-3)
-    local positiveScore = GetFeedbackHexColors(3)
-    local currentText = searchResultRow.Name:GetText()
-    searchResultRow.Name:SetText(string.format("%s %s%d|r%s%d|r", currentText, negativeScore, totalNegative, positiveScore, totalPositive))
-    searchResultRow:SetWidth(400)
-    PlaySound(SOUNDKIT.MAP_PING)
+---@param tooltip GameTooltip
+---@param totalPositive number
+---@param totalNegative number
+local function AppendDungeonStoryTooltip(tooltip, totalPositive, totalNegative)
+    if totalPositive == 0 and totalNegative == 0 then return end
+    local negColor = GetFeedbackHexColors(-3)
+    local posColor = GetFeedbackHexColors(3)
+    tooltip:AddLine(
+        string.format("DungeonStory: %s%d|r / %s+%d|r", negColor, totalNegative, posColor, totalPositive),
+        1, 1, 1
+    )
 end
 
 
@@ -1094,15 +656,12 @@ local function StartChallengeMode()
     dungeonState.keystoneLevel = C_ChallengeMode.GetActiveKeystoneInfo()
     dungeonState.party = collectDataForScoring()
     dungeonState.startTime = GetServerTime()
-    -- DevTools_Dump(dungeonState)
 end
 
 local function ResetChallengeMode()
     ResetCurrentDungeonState()
-    print("Challenge mode reset")
 end
 
----comment
 ---@param completionData ChallengeCompletionInfo | nil
 ---@param isAbandon boolean
 ---@return number Index of the saved dungeon run
@@ -1128,7 +687,6 @@ local function CompleteChallengeMode()
     ResetChallengeMode()
 end
 
----comment
 ---@param votePassed boolean
 local function AbandonVoteFinished(votePassed)
     if votePassed then
@@ -1162,41 +720,170 @@ local function GroupRosterUpdate()
     end
 end
 
-local function TryInitLFG()
-    if isLFGFrameHooked then return end
+-- LFG integration.
+--
+-- Historically we hooked LFGListSearchEntry_Update and
+-- LFGListApplicationViewer_UpdateApplicantMember via hooksecurefunc and
+-- mutated the row widgets (Name:SetText / Rating:SetText / SetWidth).
+-- Those updates run on Blizzard's secure execution path for the Sign Up /
+-- Invite buttons, so any write to the row frames propagated taint and
+-- produced "AddOn tried to call a protected function" errors when the
+-- user clicked Sign Up. Retail 12.0.5 tightened this.
+--
+-- To keep at-a-glance scores without tainting the rows we draw our own
+-- FontString overlays. The overlays live on our own (insecure) host
+-- frame and are positioned relative to each row via SetPoint. Anchoring
+-- an insecure frame TO a secure frame does not propagate taint; only
+-- writes to the secure frame (SetText / SetParent / SetWidth / adding
+-- children) do. We never write anything to the row widgets.
 
-    local viewer = LFGListFrame.ApplicationViewer -- My group applicants viewer
-    local searchPanel = LFGListFrame.SearchPanel -- Search results panel
-    if not viewer or not searchPanel then return end
+-- Host frame that owns all overlay FontStrings. Strata is raised above
+-- the default LFG frames so the overlays render on top of the rows.
+local lfgOverlayHost = CreateFrame("Frame", nil, UIParent)
+lfgOverlayHost:SetFrameStrata("HIGH")
+lfgOverlayHost:SetAllPoints(UIParent)
 
-    isLFGFrameHooked = true
+---@type table<Frame, FontString>
+local searchOverlays = {}
+---@type table<Frame, FontString>
+local applicantOverlays = {}
 
-    -- Applicants to my group
-    if LFGListApplicationViewer_UpdateApplicantMember then
-        hooksecurefunc("LFGListApplicationViewer_UpdateApplicantMember", function(member, id, index)
-            UpdateApplicantMember(member, id, index)
-        end)
+---@param anchorFrame Frame
+---@param store table<Frame, FontString>
+---@return FontString
+local function LFG_GetOrCreateOverlay(anchorFrame, store)
+    local fs = store[anchorFrame]
+    if fs then return fs end
+    fs = lfgOverlayHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    fs:SetJustifyH("RIGHT")
+    fs:Hide()
+    store[anchorFrame] = fs
+    return fs
+end
+
+---@param fs FontString
+---@param pos number
+---@param neg number
+local function LFG_SetOverlayScore(fs, pos, neg)
+    if pos == 0 and neg == 0 then
+        fs:Hide()
+        return
+    end
+    local negColor = GetFeedbackHexColors(-3)
+    local posColor = GetFeedbackHexColors(3)
+    fs:SetText(string.format("%s%d|r %s+%d|r", negColor, neg, posColor, pos))
+    fs:Show()
+end
+
+---@param row Frame @LFGListFrame.SearchPanel.ScrollBox row (LFGListSearchEntry)
+local function LFG_UpdateSearchRow(row)
+    local fs = LFG_GetOrCreateOverlay(row, searchOverlays)
+    local resultID = row.resultID
+    if not resultID or not row:IsShown() then fs:Hide(); return end
+    local info = C_LFGList.GetSearchResultInfo(resultID)
+    if not info or not info.numMembers then fs:Hide(); return end
+
+    local realmsToProbe = { currentPlayerRealmName }
+    if info.leaderName and string.find(info.leaderName, "-", nil, true) then
+        local _, realm = strsplit("-", info.leaderName)
+        if realm and realm ~= "" and realm ~= currentPlayerRealmName then
+            table.insert(realmsToProbe, realm)
+        end
     end
 
-    -- Search results
-    if LFGListSearchEntry_Update then
-        hooksecurefunc("LFGListSearchEntry_Update", function(entity)
-            local resultInfo = C_LFGList.GetSearchResultInfo(entity.resultID)
-            if not resultInfo then return end
-            -- only party leader names have a realm suffix
-            -- for all remaining party members we are supposed to best guess their realm
-            -- try probing party leader realm, or current player realm
-            local realmsToProbe = {}
-            table.insert(realmsToProbe, currentPlayerRealmName)
-            if resultInfo.leaderName and string.find(resultInfo.leaderName, "-") then
-                local _, realm = strsplit("-", resultInfo.leaderName)
-                if realm and realm ~= "" and realm ~= currentPlayerRealmName then
-                    table.insert(realmsToProbe, realm)
+    local pos, neg = 0, 0
+    for i = 1, info.numMembers do
+        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, i)
+        if memberInfo and memberInfo.name then
+            local p, n = GetAggregatedFeedback(memberInfo.name, realmsToProbe)
+            pos = pos + p
+            neg = neg + n
+        end
+    end
+
+    fs:ClearAllPoints()
+    -- Anchor near the row's right edge; nudge left of the DataDisplay/
+    -- activity-name area. The exact offset is deliberately conservative
+    -- so we don't overlap the "Sign Up" button or role icons.
+    fs:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+    LFG_SetOverlayScore(fs, pos, neg)
+end
+
+---@param memberBtn Frame @LFGListApplicationViewer row .Members[i] button
+---@param applicantID number
+---@param memberIdx number
+local function LFG_UpdateApplicantMember(memberBtn, applicantID, memberIdx)
+    local fs = LFG_GetOrCreateOverlay(memberBtn, applicantOverlays)
+    if not memberBtn:IsShown() then fs:Hide(); return end
+    local fullName = C_LFGList.GetApplicantMemberInfo(applicantID, memberIdx)
+    if not fullName then fs:Hide(); return end
+
+    local nameToProbe = fullName
+    if not string.find(nameToProbe, "-", nil, true) then
+        nameToProbe = nameToProbe .. "-" .. currentPlayerRealmName
+    end
+    local pos, neg = GatherPlayerStats(nameToProbe)
+    pos = pos or 0
+    neg = neg or 0
+
+    fs:ClearAllPoints()
+    fs:SetPoint("RIGHT", memberBtn, "RIGHT", -4, 0)
+    LFG_SetOverlayScore(fs, pos, neg)
+end
+
+local function LFG_RefreshSearchRows(frames)
+    if not frames then return end
+    for _, row in ipairs(frames) do
+        if row.resultID then
+            LFG_UpdateSearchRow(row)
+        end
+    end
+end
+
+local function LFG_RefreshApplicantRows(frames)
+    if not frames then return end
+    for _, row in ipairs(frames) do
+        local applicantID = row.applicantID
+        local members = row.Members
+        if applicantID and members then
+            for i, btn in ipairs(members) do
+                if btn.memberIdx then
+                    LFG_UpdateApplicantMember(btn, applicantID, btn.memberIdx)
+                else
+                    LFG_UpdateApplicantMember(btn, applicantID, i)
                 end
             end
-            UpdateSearchResultEntry(entity, resultInfo.numMembers, realmsToProbe)
-        end)
+        end
     end
+end
+
+---@param scrollBox Frame
+---@param cb fun(frames: Frame[])
+local function LFG_ObserveScrollBox(scrollBox, cb)
+    if not scrollBox or not scrollBox.RegisterCallback then return end
+    local frames = scrollBox.GetFrames and scrollBox:GetFrames()
+    if frames then cb(frames) end
+    if ScrollBoxListMixin and ScrollBoxListMixin.Event then
+        if ScrollBoxListMixin.Event.OnUpdate then
+            scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnUpdate, function()
+                cb(scrollBox:GetFrames())
+            end)
+        end
+        if ScrollBoxListMixin.Event.OnScroll then
+            scrollBox:RegisterCallback(ScrollBoxListMixin.Event.OnScroll, function()
+                cb(scrollBox:GetFrames())
+            end)
+        end
+    end
+end
+
+local function TryInitLFG()
+    if isLFGFrameHooked then return end
+    if not LFGListFrame or not LFGListFrame.ApplicationViewer or not LFGListFrame.SearchPanel then return end
+    isLFGFrameHooked = true
+
+    LFG_ObserveScrollBox(LFGListFrame.SearchPanel.ScrollBox, LFG_RefreshSearchRows)
+    LFG_ObserveScrollBox(LFGListFrame.ApplicationViewer.ScrollBox, LFG_RefreshApplicantRows)
 end
 
 local function addonLoadedHandler(addonName)
@@ -1372,17 +1059,15 @@ end
 hooksecurefunc("SetItemRef", function(link)
     local linkType, addon, action, name, class, ilvl, mPlusRating = strsplit(":", link)
     if linkType == "addon" and addon == "DungeonStory" then
-        print(string.format("name: %s, class: %s, ilvl: %s, mPlusRating: %s", name, class, ilvl,
-            mPlusRating))
-        if action == "Save" then
-            local data = {}
-            table.insert(data,
+        if action == "Save" and name and class then
+            local data = {
                 {
                     name = name,
                     class = class,
-                    equippedItemLevel = tonumber(ilvl),
-                    mPlusRating = tonumber(mPlusRating)
-                })
+                    equippedItemLevel = tonumber(ilvl) or 0,
+                    mPlusRating = tonumber(mPlusRating) or 0
+                }
+            }
             ShowFeedbackFrame(data, nil)
         end
     end
@@ -1409,13 +1094,10 @@ local function Main_OnEvent(self, event, ...)
         IncreaseDeathCount()
     elseif event == "GROUP_ROSTER_UPDATE" then
         GroupRosterUpdate()
-    else
-        print("Unhandled event: " .. event)
     end
 end
 
 local main = CreateFrame("Frame")
--- main:SetScript('OnUpdate', fupdate) -- too expensive to run every frame
 main:RegisterEvent("ADDON_LOADED")
 main:RegisterEvent("GROUP_JOINED")        -- I join a group
 main:RegisterEvent("GROUP_FORMED")        -- I create a group
@@ -1424,30 +1106,23 @@ main:RegisterEvent("GROUP_LEFT")          -- I leave a group
 main:RegisterEvent("PLAYER_ENTERING_WORLD")
 main:RegisterEvent("PLAYER_TARGET_CHANGED")
 main:RegisterEvent("SAVED_VARIABLES_TOO_LARGE")
---main:RegisterEvent("INSPECT_READY") -- should handle inspect to cache players specialization and ilvl
-if not classic then main:RegisterEvent("CHALLENGE_MODE_START") end
-if not classic then main:RegisterEvent("CHALLENGE_MODE_RESET") end
-if not classic then main:RegisterEvent("CHALLENGE_MODE_DEATH_COUNT_UPDATED") end
-if not classic then main:RegisterEvent("CHALLENGE_MODE_KEYSTONE_SLOTTED") end
-if not classic then main:RegisterEvent("CHALLENGE_MODE_LEAVER_TIMER_STARTED") end
-if not classic then main:RegisterEvent("CHALLENGE_MODE_LEAVER_TIMER_ENDED") end
-if not classic then main:RegisterEvent("CHALLENGE_MODE_COMPLETED") end
-if not classic then main:RegisterEvent("INSTANCE_ABANDON_VOTE_FINISHED") end
+if not classic then
+    main:RegisterEvent("CHALLENGE_MODE_START")
+    main:RegisterEvent("CHALLENGE_MODE_RESET")
+    main:RegisterEvent("CHALLENGE_MODE_DEATH_COUNT_UPDATED")
+    main:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+    main:RegisterEvent("INSTANCE_ABANDON_VOTE_FINISHED")
+end
 main:RegisterEvent("BOSS_KILL")
 main:SetScript("OnEvent", Main_OnEvent)
 
 SLASH_DUNGEONSTORY1 = "/dungeonstory"
 SlashCmdList["DUNGEONSTORY"] = function(msg)
-    if msg == "test" then
-        TestFrame()
-    elseif msg == "save" then
+    if msg == "save" then
         local data = collectDataForScoring()
         ShowFeedbackFrame(data)
-    elseif msg == "debug" then
-        doMockData = not doMockData
     else
         print("Available commands:")
-        print("/dungeonstory test - show test frame")
         print("/dungeonstory save - show feedback frame")
     end
 end
