@@ -502,7 +502,7 @@ end
 ---@return string|osdate
 function FormatDateTime(timestamp)
     timestamp = timestamp
-    return date("%Y-%m-%d %H:%M:%S", timestamp)
+    return os.date("%Y-%m-%d %H:%M:%S", timestamp)
 end
 
 ---comment
@@ -917,22 +917,14 @@ end
 ---@return PlayerData[]
 local function retrieveRaidInfo()
     local data = {}
-    -- the only way to get raid members is to iterate over raid1, raid2, ...
-    -- GetNumGroupMembers() only return total number
-    -- we don't know raid composition and which groups are actually filled
     for i = 1, 40 do
         local unit = "raid" .. i
-        if UnitExists(unit) and not UnitIsPlayer(unit) == true then
-            local unitInfo = collectUnitInfo(unit, i)
-            table.insert(data, unitInfo)
-        else
-            print("Unit is player or does not exist: " .. unit)
-            DevTools_Dump(unit)
-
-            -- still try to collect info?
-            local unitInfo = collectUnitInfo(unit, i)
-            table.insert(data, unitInfo)
-        end        
+        if UnitExists(unit) and UnitIsPlayer(unit) then
+            local unitInfo = collectUnitInfo(unit)
+            if unitInfo then
+                table.insert(data, unitInfo)
+            end
+        end
     end
     return data
 end
@@ -944,18 +936,11 @@ local function retrieveGroupInfo()
     local numMembers = GetNumSubgroupMembers()
     for i = 1, numMembers do
         local unit = "party" .. i
-        if UnitIsPlayer(unit) ~= true then
+        if UnitExists(unit) and UnitIsPlayer(unit) then
             local unitInfo = collectUnitInfo(unit)
-            if unitInfo ~= nil then
+            if unitInfo then
                 table.insert(data, unitInfo)
             end
-        else
-            print("Unit is player or does not exist: " .. unit)
-            DevTools_Dump(unit)
-
-            -- still try to collect info?
-            local unitInfo = collectUnitInfo(unit, i)
-            table.insert(data, unitInfo)
         end
     end
     return data
@@ -1201,11 +1186,11 @@ end
 
 local function addonLoadedHandler(addonName)
     if addonName == "DungeonStory" then
-        if DungeonStoryPlayers == nil then --[[@as DungeonStoryPlayers]]
-            DungeonStoryPlayers = {}
+        if _G.DungeonStoryPlayers == nil then
+            _G.DungeonStoryPlayers = {}
         end
-        if DungeonStoryRuns == nil then --[[@as DungeonStoryRuns]]
-            DungeonStoryRuns = {}
+        if _G.DungeonStoryRuns == nil then
+            _G.DungeonStoryRuns = {}
         end
         currentPlayerRealmName = GetRealmName()
     end
